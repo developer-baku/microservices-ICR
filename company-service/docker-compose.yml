@@ -1,0 +1,140 @@
+
+
+services:
+
+  eureka-service:
+    build: C:\IntelliJ_Projects\eureka
+    container_name: eureka-service
+    ports:
+      - 8761:8761
+    networks:
+      - msd
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+  gateway:
+    build: C:\IntelliJ_Projects\gateway
+    container_name: gateway
+    ports:
+      - 8080:8080
+    networks:
+      - msd
+    depends_on:
+      - job-service
+      - company-service
+      - review-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+  config-service:
+    build: C:\IntelliJ_Projects\config-service
+    container_name: config-service
+    networks:
+      - msd
+
+    ports:
+      - 8183:8183
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+
+  company-service:
+
+    build: C:\IntelliJ_Projects\company-service
+    container_name: company-service
+    ports:
+      - 8083:8083
+    networks:
+      - msd
+      - postgres
+    depends_on:
+      - config-service
+      - eureka-service
+      - postgres
+      - rabbit
+      - zipkin
+    environment:
+      SPRING_ZIPKIN_BASE_URL: http://zipkin:9411/
+      SPRING_RABBITMQ_HOST: rabbit-hn
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-service:8761/eureka
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/company
+  review-service:
+    build: C:\IntelliJ_Projects\review-service
+    container_name: review-service
+    ports:
+      - 8081:8081
+    networks:
+      - msd
+      - postgres
+    depends_on:
+      - zipkin
+      - postgres
+      - rabbit
+    environment:
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      SPRING_RABBITMQ_HOST: rabbit-hn
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/company
+
+  job-service:
+    build: C:\IntelliJ_Projects\job-service
+    container_name: job-service
+    ports:
+      - 8082:8082
+    networks:
+      - msd
+      - postgres
+    depends_on:
+      - zipkin
+      - postgres
+      - rabbit
+    environment:
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/company
+
+  zipkin:
+    container_name: zipkin
+    ports:
+      - "9411:9411"
+    networks:
+      - msd
+    image: openzipkin/zipkin
+
+  postgres:
+    image: postgres
+    networks:
+      - postgres
+    container_name: postgres
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_PASSWORD: root
+      POSTGRES_USER: admin
+      POSTGRES_DB: company
+      DATABASE_PORT: 5432
+      PGDATA: /data/postgres
+    volumes:
+      - newVolume:/var/lib/pgadmin
+  rabbit:
+    hostname: rabbit-hn
+    networks:
+      - msd
+    image: rabbitmq:3.13-management
+    container_name: rabbit
+    ports:
+      - 5672:5672
+      - 15672:15672
+
+
+
+volumes:
+  newVolume:
+  db-data:
+networks:
+  msd: {}
+  postgres: {}
